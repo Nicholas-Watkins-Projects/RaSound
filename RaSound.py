@@ -1,7 +1,7 @@
 import random, os, time
 import playsound
 import SettingHandler as setH
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, freeze_support
 import threading
 
 class SoundClip:
@@ -11,17 +11,17 @@ class SoundClip:
         self.chance = chance
         self.time = time
 
+        if time == "second":
+            self.chance = chance / 10
+
         if time == "minute":
-            self.chance = self.chance / 60
+            self.chance = (self.chance / 10) / 60
 
         if time == "hour":
-            self.chance = (self.chance / 60) / 60
+            self.chance = ((self.chance / 10) / 60) / 60
 
 def SoundPlay(sound_location):
     playsound.playsound(sound_location)
-    print(f"Played Sound at {sound_location}")
-    time.sleep(5)
-    pass
 
 def SoundHandle(sound):
     while True:
@@ -34,6 +34,7 @@ def SoundHandle(sound):
         thread1.join() # Play sound over each other, aka make new thread for each sound that comes in, TESTING
 
 def SoundLoop(hour_limit = 2, timeInterval = 0, sound_queue = None):
+    deci_sec = 0
     seconds = 0
     minutes = 0
     hours = 0
@@ -44,7 +45,7 @@ def SoundLoop(hour_limit = 2, timeInterval = 0, sound_queue = None):
 
         time.sleep(timeInterval)
         os.system("cls")
-        seconds += 1
+        deci_sec += 1
 
         for sound_clip in sound_clips:
             per_chance = random.random()
@@ -57,32 +58,41 @@ def SoundLoop(hour_limit = 2, timeInterval = 0, sound_queue = None):
     
                 clips_played[sound_clip.sound_location] += 1
                 sound_queue.put(sound_clip.sound_location)
-                    
-        if seconds == 60:
-            seconds = 0
-            minutes += 1
 
-            if minutes == 60:
-                minutes = 0
-                hours += 1
-            
-                if hours >= hour_limit:
-                    running = False
+        if deci_sec == 10:
+            deci_sec = 0
+            seconds += 1
+                    
+            if seconds == 60:
+                seconds = 0
+                minutes += 1
+
+                if minutes == 60:
+                    minutes = 0
+                    hours += 1
+                
+                    if hours >= hour_limit:
+                        running = False
 
         total_seconds = (((hours * 60) + minutes) * 60) + seconds
-        print(f"Elapsed: {hours}:{minutes}:{seconds} s:{total_seconds} | Clips: {clips_played}") ################################################
+        print(f"Elapsed: {hours}:{minutes}:{seconds}:{deci_sec} s:{total_seconds} | Clips: ") ################################################
+
+        for clip in list(clips_played.keys()):
+            print(f"\t{clip}: {clips_played[clip]}")
 
     return clips_played
-    
-if __name__ == '__main__':
 
+
+if __name__ == '__main__':
+    freeze_support()
     sound_clips = []
+
     for i in setH.HandleSetting("settings_file.txt"):
         sound_clips.append(SoundClip(i[0], float(i[1]), i[2]))
 
     sound = Queue()
     sound_handler = Process(target=SoundHandle, args=(sound,))
     sound_handler.start()
-    
-    SoundLoop(1, 1, sound)
+
+    SoundLoop(2, .1, sound)
     sound_handler.join()
